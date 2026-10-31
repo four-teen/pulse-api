@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/src/Dashboard.php';
 
 $storage = sys_get_temp_dir() . '/pulse-integrations-test-' . bin2hex(random_bytes(8));
 putenv('PULSE_STORAGE_PATH=' . $storage);
+putenv('SINQ_ACADEMICS_ENABLED=false');
 foreach (['SINQ', 'ORACLE', 'PAD'] as $prefix) {
     putenv($prefix . '_ENABLED=false');
     putenv($prefix . '_API_BASE_URL=');
@@ -60,7 +61,8 @@ try {
     check(pulsePresidentDashboard()['campuses'][0]['students'] === null, 'No category ownership may be guessed from a source name.');
     putenv('PULSE_INSTRUCTION_SOURCE=sinq');
     $dashboard = pulsePresidentDashboard();
-    check($dashboard['campuses'][0]['students'] === 120 && $dashboard['campuses'][1]['students'] === null, 'Campus values must not leak into another campus.');
+    check($dashboard['campuses'][0]['programs'] === 3 && $dashboard['campuses'][1]['programs'] === null, 'Campus values must not leak into another campus.');
+    check($dashboard['campuses'][0]['students'] === null && $dashboard['campuses'][0]['faculty'] === null, 'Summary snapshots must never substitute for current-term academic headcounts.');
     check($dashboard['campuses'][0]['research']['active'] === null, 'Unassigned categories must remain unknown.');
     check($dashboard['dataState'] === 'partial', 'Partial data must be marked honestly.');
     putenv('DASHBOARD_PERIOD_KEY=another-period');
@@ -69,10 +71,10 @@ try {
     check(!str_contains(json_encode($dashboard), 'test-only-integration-secret'), 'Public records must never contain API credentials.');
 
     configured('oracle');
-    $oracle = $payload; $oracle['sourceId'] = 'oracle'; $oracle['campuses'][0]['instruction']['students'] = 200;
+    $oracle = $payload; $oracle['sourceId'] = 'oracle'; $oracle['campuses'][0]['instruction']['programs'] = 5;
     $store->save('oracle', $oracle);
     putenv('PULSE_INSTRUCTION_SOURCE=oracle');
-    check(pulsePresidentDashboard()['campuses'][0]['students'] === 200, 'Overlapping sources must not be added together.');
+    check(pulsePresidentDashboard()['campuses'][0]['programs'] === 5, 'Overlapping sources must not be added together.');
     putenv('PULSE_INSTRUCTION_SOURCE=sinq');
 
     $invalid = $payload; $invalid['campuses'][0]['instruction']['students'] = '120';

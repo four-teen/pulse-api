@@ -1,5 +1,7 @@
 # Connecting university systems to PULSE
 
+Current-term faculty and student headcounts now use the separate [read-only academic count reader](synk-academic-counts.md). That PULSE-owned reader queries the shared local database during authenticated dashboard requests. The summary snapshot contracts and optional profile detail export documented below remain separate; the profile directory must not supply academic headcounts.
+
 The integration foundation is prepared. **No vendor API has been contacted or enabled.** The three supplied links identify the systems' websites; they are not assumed to be API endpoints.
 
 | Source ID | Name | Website | Initial state |
@@ -22,7 +24,7 @@ Later, an operator-controlled CLI command:
   -> validation and atomic snapshot replacement
 ```
 
-Loading or refreshing the dashboard does **not** initiate source requests. There is no public sync, token-editing, connection-testing, or source-activation endpoint. No scheduler is installed. The connector performs a read-only GET; it does not scrape the websites or write into another system.
+Loading or refreshing the dashboard does **not** initiate HTTP source synchronization. Summary and profile feeds retain their stored-copy workflow; the separately enabled academic reader performs read-only local database SELECTs. There is no public sync, token-editing, connection-testing, or source-activation endpoint. No scheduler is installed. The HTTP connector performs a read-only GET; it does not scrape the websites or write into another system.
 
 ## What is needed when connection work starts
 

@@ -2,6 +2,8 @@
 
 Dependency-free PHP authentication, presidential dashboard endpoints, and a prepared integration layer for SINQ, Oracle, and PAD. Requires **PHP 8.1+** with sessions, JSON, and cURL enabled. A database is not required for the current private snapshot store.
 
+Current-term faculty and student headcounts use a separate read-only Synk database reader and require `mysqli`/mysqlnd and `mbstring`. Follow [Synk academic counts](docs/synk-academic-counts.md) for the exact counting rules, local configuration, per-unit breakdowns, and production SELECT-only account setup. The all-time profile directory is not the academic headcount source.
+
 ## Presidential passcode
 
 ```powershell
@@ -43,9 +45,11 @@ POST routes require an `Origin` header matching `APP_URL`. Responses are not cac
 5. Set the frontend Vercel variable `PULSE_API_ORIGIN` to the API's HTTPS base URL. The frontend proxy calls PHP server-to-server and forwards session cookies. No browser CORS policy is needed for this setup.
 6. Optionally set matching `PULSE_PROXY_SECRET` values on both servers to require traffic through the frontend proxy. Use a random secret; do not expose it to browser code.
 
-The three requested systems are registered and **disabled**. Website links are retained for identification; summary API endpoints and credentials are not assumed. Dashboard GET requests read validated local snapshots only and never connect to source systems. The prepared summary sync command is CLI-only and requires an explicitly enabled source. Synk faculty profiles use the separate `SINQ_FACULTY_ENABLED` flag and `php bin/sync.php --faculty-profiles`; the browser reads only the resulting private snapshot. See the [integration guide](docs/integrations.md) for the narrow profile field list and hosting configuration.
+The three summary feeds are registered and **disabled** by default. Their endpoints and credentials are not assumed; dashboard summary metrics read validated local snapshots. The separate `SINQ_ACADEMICS_ENABLED` reader retrieves current-term academic counts directly through fixed SELECT queries in a read-only local database transaction. The prepared summary sync command remains CLI-only. Optional Synk faculty profile details use `SINQ_FACULTY_ENABLED` and `php bin/sync.php --faculty-profiles`; their snapshot never supplies academic headcounts. See the [integration guide](docs/integrations.md) for the separate feed contracts.
 
 For an isolated local-only exercise, use `.env.local.example`, `bin/start-local-sinq.ps1`, and `php bin/sync.php --faculty-profiles-local`. Local settings are read only in development, use loopback HTTP, and write a separate `.local-test.json` snapshot. They do not enable the live Synk domain.
+
+The optional [faculty profile snapshot](docs/synk-faculty-profiles.md) supports the existing profile detail endpoint only. Dashboard headcounts come from current-term scheduler college lists and active imported student class lists through `academicCounts`, not from that snapshot.
 
 Read [the integration contract](docs/integrations.md) before connecting a source. It documents configuration, adapter boundaries, campus IDs, metric names, reporting periods, category ownership, partial/missing values, freshness, validation and later sync commands. [OpenAPI documentation](docs/openapi.yaml) describes the frontend-facing routes.
 
