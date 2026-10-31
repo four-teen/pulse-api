@@ -46,6 +46,29 @@ For each source, use its uppercase prefix (`SINQ`, `ORACLE`, or `PAD`):
 
 The HTTP client verifies TLS, rejects redirects and unapproved hosts, applies connection/request timeouts, caps responses at 2 MiB, and requires JSON. It never forwards the president's session cookie to source systems.
 
+## Synk faculty profiles
+
+Faculty profiles use a separate read-only resource because the dashboard summary contract is limited to campus metrics. The single Synk endpoint is `GET /backend/pulse_api.php?resource=faculty-profiles&limit=250&offset=0`, protected by a bearer token. It only exports the faculty name, campus, college, faculty rank, education degree/institution/specialization/status, and source update time. It excludes date of birth, civil status, salary, contact details, account data, and faculty ID numbers. The source-side endpoint accepts GET only and does not write to Synk.
+
+The PULSE API fetches profiles only when an operator runs `php bin/sync.php --faculty-profiles`. It validates every page and replaces the private local snapshot only after a complete successful fetch. The presidential browser reads that stored snapshot through authenticated `GET /v1/faculty-profiles`; opening or refreshing the page does not contact Synk. No automatic schedule is installed.
+
+Configure the PHP hosting environment for Synk with `SYNK_PULSE_API_TOKEN`. Set the same random secret as `SINQ_API_TOKEN` in the PULSE API `.env`, then set:
+
+```dotenv
+SINQ_API_BASE_URL=https://sinq.sksu-orms.net
+SINQ_API_ALLOWED_HOST=sinq.sksu-orms.net
+SINQ_FACULTY_PATH=/backend/pulse_api.php?resource=faculty-profiles
+SINQ_FACULTY_ENABLED=true
+```
+
+Keep `SINQ_API_TOKEN` private on the PULSE PHP host; do not put it in Vercel or a `VITE_` variable. The Synk endpoint file must be deployed to the live app before enabling this source. Set the source token in the cPanel PHP environment, never in the endpoint source.
+
+### Local-only test mode
+
+The local integration is isolated from the live source. The PULSE API loads `.env.local` only when `APP_ENV=development`; production ignores it. Copy `.env.local.example` to `.env.local`, set a private test token of at least 32 characters, and keep `SINQ_FACULTY_ENABLED=false` in the base `.env`. The local source is hard-limited to `http://127.0.0.1:8081`, requires a local Synk database config, and writes to `var/integrations/sinq-faculty-profiles.local-test.json` rather than the production snapshot filename.
+
+Start local Synk with `powershell -ExecutionPolicy Bypass -File bin/start-local-sinq.ps1` from the PULSE API folder. The helper binds only to loopback and passes the test token to the local PHP process. In another terminal, run `php bin/sync.php --faculty-profiles-local`. Then run the normal local PULSE API and web dev servers; the Faculty profiles page displays a **LOCAL TEST · LOOPBACK ONLY** label. This mode never calls the live Synk subdomain.
+
 ## Category ownership and reporting periods
 
 Assign exactly one authoritative source per category after reviewing the fields:

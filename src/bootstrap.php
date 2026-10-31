@@ -24,6 +24,24 @@ function config(string $name, string $default = ''): string
                 $values[$key] = $value;
             }
         }
+        $effectiveEnvironment = getenv('APP_ENV') !== false ? getenv('APP_ENV') : ($values['APP_ENV'] ?? '');
+        if ($effectiveEnvironment === 'development') {
+            $localFile = dirname(__DIR__) . '/.env.local';
+            if (is_file($localFile)) {
+                foreach (file($localFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+                    $line = trim($line);
+                    if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) continue;
+                    [$key, $value] = explode('=', $line, 2);
+                    $key = trim($key);
+                    $value = trim($value);
+                    if ($key === 'APP_ENV') continue;
+                    if (strlen($value) >= 2 && (($value[0] === '"' && str_ends_with($value, '"')) || ($value[0] === "'" && str_ends_with($value, "'")))) {
+                        $value = substr($value, 1, -1);
+                    }
+                    $values[$key] = $value;
+                }
+            }
+        }
     }
     $environment = getenv($name);
     return $environment !== false ? $environment : ($values[$name] ?? $default);
