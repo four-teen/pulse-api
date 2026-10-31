@@ -113,12 +113,62 @@ paths:
           description: Object containing schemaVersion and sources. Credentials and private API endpoint configuration are never returned.
         '401':
           description: Presidential authentication required
+  /v1/faculty-profiles:
+    get:
+      summary: Read a page of synchronized Synk faculty profiles
+      description: Reads a validated private snapshot only. The Synk source is never contacted by this request. Search matches name, campus, college, and rank.
+      security: [{presidentialSession: []}]
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: q, in: query, schema: {type: string, maxLength: 400}}
+      responses:
+        '200':
+          description: Profile page and synchronization state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schemaVersion, sourceId, mode, status, observedAt, facultyProfiles, pagination]
+                properties:
+                  schemaVersion: {const: 1}
+                  sourceId: {const: sinq}
+                  mode: {enum: [local_test, production]}
+                  status: {enum: [disabled, configuration_required, awaiting_sync, connected]}
+                  observedAt: {type: [string, 'null'], format: date-time}
+                  facultyProfiles:
+                    type: array
+                    items: {$ref: '#/components/schemas/FacultyProfile'}
+                  pagination:
+                    type: object
+                    required: [total, limit, offset]
+                    properties:
+                      total: {type: integer, minimum: 0}
+                      limit: {type: integer, minimum: 1, maximum: 100}
+                      offset: {type: integer, minimum: 0}
+        '401':
+          description: Presidential authentication required
+  /backend/pulse_api.php:
+    get:
+      summary: Synk's read-only PULSE faculty export
+      description: Source API. Requires an Authorization Bearer token configured on the PHP host; GET only. Exports an approved faculty profile field allowlist and never accepts writes.
+      security: [{sinqBearer: []}]
+      parameters:
+        - {name: resource, in: query, required: true, schema: {const: faculty-profiles}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 250, default: 100}}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
+      responses:
+        '200': {description: Synk faculty profile page}
+        '401': {description: Bearer token required}
 components:
   securitySchemes:
     presidentialSession:
       type: apiKey
       in: cookie
       name: pulse_session
+    sinqBearer:
+      type: http
+      scheme: bearer
   schemas:
     Campus:
       type: object
@@ -177,5 +227,29 @@ components:
         status: {enum: [not_connected, configuration_required, awaiting_sync, connected, stale, invalid_data, period_mismatch]}
         updatedAt: {type: [string, 'null'], format: date-time}
     Count: {type: [integer, 'null'], minimum: 0, maximum: 1000000000}
+    FacultyProfile:
+      type: object
+      required: [id, fullName, campus, college, rank, education, updatedAt]
+      properties:
+        id: {type: integer, minimum: 1}
+        fullName: {type: string}
+        campus: {type: string}
+        college: {type: string}
+        rank: {type: string}
+        education:
+          type: object
+          properties:
+            bachelor: {$ref: '#/components/schemas/EducationRecord'}
+            master: {$ref: '#/components/schemas/EducationRecord'}
+            doctoral: {$ref: '#/components/schemas/EducationRecord'}
+        updatedAt: {type: [string, 'null'], format: date-time}
+    EducationRecord:
+      type: object
+      required: [degree, institution, specialization, status]
+      properties:
+        degree: {type: string}
+        institution: {type: string}
+        specialization: {type: string}
+        status: {type: string}
     Amount: {type: [number, 'null'], minimum: 0, maximum: 1000000000000000}
     Percentage: {type: [number, 'null'], minimum: 0, maximum: 100}

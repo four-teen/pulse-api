@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 require dirname(__DIR__) . '/src/Dashboard.php';
+require dirname(__DIR__) . '/src/FacultyProfiles.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, private');
@@ -12,11 +13,11 @@ header('X-Frame-Options: DENY');
 try {
     $path = rtrim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/', '/');
     // Also support an API hosted under /pulse-api/ rather than a dedicated domain.
-    $path = preg_replace('#^.*?(/(?:auth/[^/]+|v1/(?:president/dashboard|campuses|integrations)|health))$#', '$1', $path);
+    $path = preg_replace('#^.*?(/(?:auth/[^/]+|v1/(?:president/dashboard|campuses|integrations|faculty-profiles)|health))$#', '$1', $path);
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $routes = [
         '/health' => 'GET', '/auth/login' => 'POST', '/auth/session' => 'GET', '/auth/logout' => 'POST',
-        '/v1/president/dashboard' => 'GET', '/v1/campuses' => 'GET', '/v1/integrations' => 'GET',
+        '/v1/president/dashboard' => 'GET', '/v1/campuses' => 'GET', '/v1/integrations' => 'GET', '/v1/faculty-profiles' => 'GET',
     ];
     if (!isset($routes[$path])) respond(404, ['message' => 'Not found.']);
     if ($routes[$path] !== $method) {
@@ -43,6 +44,7 @@ try {
     }
     session_write_close();
     if ($path === '/auth/session') respond(200, ['user' => president()]);
+    if ($path === '/v1/faculty-profiles') respond(200, PulseFacultyProfiles::response($_GET));
     $dashboard = pulsePresidentDashboard();
     if ($path === '/v1/campuses') respond(200, ['schemaVersion' => 1, 'campuses' => $dashboard['campuses']]);
     if ($path === '/v1/integrations') respond(200, ['schemaVersion' => 1, 'sources' => $dashboard['sources']]);

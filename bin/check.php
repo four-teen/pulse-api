@@ -4,6 +4,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require dirname(__DIR__) . '/src/bootstrap.php';
 require dirname(__DIR__) . '/src/Integrations.php';
+require dirname(__DIR__) . '/src/FacultyProfiles.php';
 
 $production = in_array('--production', $argv, true);
 $issues = [];
@@ -22,6 +23,9 @@ if ($production) {
 }
 foreach (PulseSourceRegistry::all() as $source) {
     if ($source['enabled'] && PulseSourceRegistry::issues($source)) $issues[] = $source['name'] . ' is enabled but its API configuration is incomplete.';
+}
+if (filter_var(config('SINQ_FACULTY_ENABLED', 'false'), FILTER_VALIDATE_BOOLEAN) && PulseFacultyProfiles::configurationIssues()) {
+    $issues[] = 'Synk faculty profiles are enabled but their API configuration is incomplete.';
 }
 if ($issues) {
     foreach ($issues as $issue) fwrite(STDERR, '- ' . $issue . "\n");
