@@ -1,0 +1,181 @@
+openapi: 3.1.0
+info:
+  title: PULSE Presidential API
+  version: 1.0.0
+  description: Same-origin frontend proxy and authenticated PHP API. Source synchronization is CLI-only and disabled until explicitly configured.
+paths:
+  /health:
+    get:
+      summary: Service liveness
+      responses:
+        '200':
+          description: PULSE API is running
+  /auth/login:
+    post:
+      summary: Authenticate the president
+      description: Requires an Origin header matching APP_URL. Issues an HttpOnly, SameSite=Strict session cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [passcode]
+              properties:
+                passcode:
+                  type: string
+                  minLength: 1
+                  maxLength: 1024
+      responses:
+        '200':
+          description: Signed in
+        '401':
+          description: Incorrect passcode
+        '403':
+          description: Origin or proxy secret rejected
+        '429':
+          description: Temporary sign-in lock
+  /auth/session:
+    get:
+      summary: Restore the presidential session
+      security: [{presidentialSession: []}]
+      responses:
+        '200':
+          description: Authenticated president profile
+        '401':
+          description: Session missing or expired
+  /auth/logout:
+    post:
+      summary: Destroy the current session
+      description: Requires an Origin header matching APP_URL.
+      security: [{presidentialSession: []}]
+      responses:
+        '200':
+          description: Signed out and cookie expired
+  /v1/president/dashboard:
+    get:
+      summary: Read university records and integration states
+      description: Reads validated private snapshots only. Never makes a vendor API request. Missing metrics are null; zero is reserved for confirmed zero values.
+      security: [{presidentialSession: []}]
+      responses:
+        '200':
+          description: University dashboard
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schemaVersion, generatedAt, updatedAt, dataState, periodKey, periodLabel, coverage, categorySources, campuses, sources]
+                properties:
+                  schemaVersion: {const: 1}
+                  generatedAt: {type: string, format: date-time}
+                  updatedAt: {type: [string, 'null'], format: date-time}
+                  dataState: {enum: [awaiting_data, partial, stale, ready]}
+                  periodKey: {type: [string, 'null']}
+                  periodLabel: {type: [string, 'null']}
+                  coverage:
+                    type: object
+                    required: [availableMetrics, totalMetrics]
+                    properties:
+                      availableMetrics: {type: integer, minimum: 0}
+                      totalMetrics: {type: integer, minimum: 0}
+                  categorySources:
+                    type: object
+                    additionalProperties: {enum: [sinq, oracle, pad, null]}
+                  campuses:
+                    type: array
+                    minItems: 7
+                    maxItems: 7
+                    items: {$ref: '#/components/schemas/Campus'}
+                  sources:
+                    type: array
+                    minItems: 3
+                    maxItems: 3
+                    items: {$ref: '#/components/schemas/Source'}
+        '401':
+          description: Presidential authentication required
+        '500':
+          description: Private record storage unavailable
+  /v1/campuses:
+    get:
+      summary: Read the campus catalogue and available campus metrics
+      security: [{presidentialSession: []}]
+      responses:
+        '200':
+          description: Object containing schemaVersion and campuses, with the same campus schema as the dashboard
+        '401':
+          description: Presidential authentication required
+  /v1/integrations:
+    get:
+      summary: Read redacted integration availability
+      security: [{presidentialSession: []}]
+      responses:
+        '200':
+          description: Object containing schemaVersion and sources. Credentials and private API endpoint configuration are never returned.
+        '401':
+          description: Presidential authentication required
+components:
+  securitySchemes:
+    presidentialSession:
+      type: apiKey
+      in: cookie
+      name: pulse_session
+  schemas:
+    Campus:
+      type: object
+      required: [id, name, mark, color, tint, students, previousStudents, faculty, programs, retention, budget, utilization, research, extension, production, inventory]
+      properties:
+        id: {enum: [access, isulan, tacurong, kalamansig, lutayan, palimbang, bagumbayan]}
+        name: {type: string}
+        mark: {type: string}
+        color: {type: string, pattern: '^#[0-9a-fA-F]{6}$'}
+        tint: {type: string, pattern: '^#[0-9a-fA-F]{6}$'}
+        students: {$ref: '#/components/schemas/Count'}
+        previousStudents: {$ref: '#/components/schemas/Count'}
+        faculty: {$ref: '#/components/schemas/Count'}
+        programs: {$ref: '#/components/schemas/Count'}
+        retention: {$ref: '#/components/schemas/Percentage'}
+        budget: {$ref: '#/components/schemas/Amount'}
+        utilization: {$ref: '#/components/schemas/Percentage'}
+        research:
+          type: object
+          properties:
+            active: {$ref: '#/components/schemas/Count'}
+            completed: {$ref: '#/components/schemas/Count'}
+            publications: {$ref: '#/components/schemas/Count'}
+            funding: {$ref: '#/components/schemas/Amount'}
+        extension:
+          type: object
+          properties:
+            active: {$ref: '#/components/schemas/Count'}
+            completed: {$ref: '#/components/schemas/Count'}
+            communities: {$ref: '#/components/schemas/Count'}
+            beneficiaries: {$ref: '#/components/schemas/Count'}
+            sessions: {$ref: '#/components/schemas/Count'}
+        production:
+          type: object
+          properties:
+            enterprises: {$ref: '#/components/schemas/Count'}
+            revenue: {$ref: '#/components/schemas/Amount'}
+            expenses: {$ref: '#/components/schemas/Amount'}
+            target: {$ref: '#/components/schemas/Amount'}
+        inventory:
+          type: object
+          properties:
+            buildings: {$ref: '#/components/schemas/Count'}
+            classrooms: {$ref: '#/components/schemas/Count'}
+            laboratories: {$ref: '#/components/schemas/Count'}
+            assets: {$ref: '#/components/schemas/Count'}
+            serviceable: {$ref: '#/components/schemas/Count'}
+            value: {$ref: '#/components/schemas/Amount'}
+    Source:
+      type: object
+      required: [id, name, website, status, updatedAt]
+      properties:
+        id: {enum: [sinq, oracle, pad]}
+        name: {type: string}
+        website: {type: string, format: uri}
+        status: {enum: [not_connected, configuration_required, awaiting_sync, connected, stale, invalid_data, period_mismatch]}
+        updatedAt: {type: [string, 'null'], format: date-time}
+    Count: {type: [integer, 'null'], minimum: 0, maximum: 1000000000}
+    Amount: {type: [number, 'null'], minimum: 0, maximum: 1000000000000000}
+    Percentage: {type: [number, 'null'], minimum: 0, maximum: 100}

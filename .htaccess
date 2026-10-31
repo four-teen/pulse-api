@@ -1,0 +1,9 @@
+# Host this project's public/ directory as the document root.
+# These rules protect secrets if the whole project is accidentally placed in webroot.
+<FilesMatch "^(\.|.*\.(?:ini|log|md|json|lock))">
+  Require all denied
+</FilesMatch>
+RewriteEngine On
+RewriteRule (^|/)\. - [F,L]
+RewriteRule ^(?:src|bin|var|tests|docs)(?:/|$) - [F,L]
+RewriteRule ^(?:auth/.*|v1/.*|health)$ public/index.php [L,QSA]
