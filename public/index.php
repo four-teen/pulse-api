@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/src/bootstrap.php';
 require dirname(__DIR__) . '/src/Dashboard.php';
-require dirname(__DIR__) . '/src/FacultyProfiles.php';
+require_once dirname(__DIR__) . '/src/FacultyProfiles.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, private');

@@ -2,15 +2,17 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/Integrations.php';
+require_once __DIR__ . '/SynkAcademics.php';
 
-/** Reads private snapshots only. Dashboard requests never contact another system. */
+/** Academic counts use a read-only local transaction; other metrics read private snapshots. */
 function pulsePresidentDashboard(): array
 {
+    $academics = PulseSynkAcademics::read();
     $store = new PulseSnapshotStore();
     $sources = [];
     $snapshots = [];
     $maxAge = max(60, (int) config('DASHBOARD_DATA_MAX_AGE_SECONDS', '86400'));
-    $periodKey = trim(config('DASHBOARD_PERIOD_KEY'));
+    $periodKey = $academics['term']['key'] ?? trim(config('DASHBOARD_PERIOD_KEY'));
     foreach (PulseSourceRegistry::all() as $id => $source) {
         $snapshot = null;
         $status = 'not_connected';
@@ -54,6 +56,18 @@ function pulsePresidentDashboard(): array
             }
             foreach ($groups[$group] as $value) { $total++; if ($value !== null) $available++; }
         }
+        if ($academics['status'] === 'connected') {
+            foreach (['faculty' => 'faculty', 'students' => 'students'] as $field => $countGroup) {
+                if ($groups['instruction'][$field] === null) $available++;
+                $groups['instruction'][$field] = $academics[$countGroup]['byCampus'][$campus['id']];
+            }
+        } else {
+            // Current-term headcounts must never fall back to the all-time profile directory or another period.
+            foreach (['faculty', 'students'] as $field) {
+                if ($groups['instruction'][$field] !== null) $available--;
+                $groups['instruction'][$field] = null;
+            }
+        }
         $campuses[] = $campus + $groups['instruction'] + $groups['finance'] + [
             'research' => $groups['research'], 'extension' => $groups['extension'],
             'production' => $groups['production'], 'inventory' => $groups['inventory'],
@@ -66,16 +80,23 @@ function pulsePresidentDashboard(): array
         if ($updatedAt === null || strtotime($observedAt) < strtotime($updatedAt)) $updatedAt = $observedAt;
         if (time() - strtotime($observedAt) > $maxAge) $stale = true;
     }
+    if ($academics['status'] === 'connected') {
+        if ($updatedAt === null || strtotime($academics['retrievedAt']) < strtotime($updatedAt)) $updatedAt = $academics['retrievedAt'];
+        // Academic counts and summary feeds have separate contracts; never claim the full summary is connected.
+    }
+    $facultyDirectory = $academics['faculty'] + ['retrievedAt' => $academics['retrievedAt']];
     return [
         'schemaVersion' => 1,
         'generatedAt' => gmdate(DATE_ATOM),
         'updatedAt' => $updatedAt,
         'dataState' => $available === 0 ? 'awaiting_data' : ($stale ? 'stale' : ($available < $total ? 'partial' : 'ready')),
-        'periodLabel' => config('DASHBOARD_PERIOD_LABEL') ?: null,
+        'periodLabel' => $academics['term'] ? $academics['term']['academicYear'] . ' · ' . $academics['term']['semesterLabel'] : (config('DASHBOARD_PERIOD_LABEL') ?: null),
         'periodKey' => $periodKey ?: null,
         'coverage' => ['availableMetrics' => $available, 'totalMetrics' => $total],
         'categorySources' => $owners,
         'campuses' => $campuses,
         'sources' => $sources,
+        'facultyDirectory' => $facultyDirectory,
+        'academicCounts' => $academics,
     ];
 }

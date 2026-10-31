@@ -20,7 +20,7 @@ async function startApi(overrides = {}) {
   await new Promise(resolve => listener.close(resolve))
   const processHandle = spawn('php', ['-S', `127.0.0.1:${port}`, '-t', 'public', 'public/router.php'], {
     cwd: root,
-    env: { ...process.env, APP_ENV: 'development', APP_URL: origin, PRESIDENT_PASSCODE: credentials.passcode, PRESIDENT_PASSCODE_HASH: '', PRESIDENT_NAME: 'Test President', PULSE_PROXY_SECRET: '', PULSE_STORAGE_PATH: storage, SESSION_TTL: '60', SINQ_ENABLED: 'false', ORACLE_ENABLED: 'false', PAD_ENABLED: 'false', PULSE_INSTRUCTION_SOURCE: '', PULSE_RESEARCH_SOURCE: '', PULSE_EXTENSION_SOURCE: '', PULSE_PRODUCTION_SOURCE: '', PULSE_INVENTORY_SOURCE: '', PULSE_FINANCE_SOURCE: '', DASHBOARD_PERIOD_KEY: '', ...overrides },
+    env: { ...process.env, APP_ENV: 'development', APP_URL: origin, PRESIDENT_PASSCODE: credentials.passcode, PRESIDENT_PASSCODE_HASH: '', PRESIDENT_NAME: 'Test President', PULSE_PROXY_SECRET: '', PULSE_STORAGE_PATH: storage, SESSION_TTL: '60', SINQ_ACADEMICS_ENABLED: 'false', SINQ_ENABLED: 'false', ORACLE_ENABLED: 'false', PAD_ENABLED: 'false', PULSE_INSTRUCTION_SOURCE: '', PULSE_RESEARCH_SOURCE: '', PULSE_EXTENSION_SOURCE: '', PULSE_PRODUCTION_SOURCE: '', PULSE_INVENTORY_SOURCE: '', PULSE_FINANCE_SOURCE: '', DASHBOARD_PERIOD_KEY: '', ...overrides },
     stdio: ['ignore', 'ignore', 'pipe'],
   })
   let logs = ''
@@ -48,6 +48,25 @@ async function startApi(overrides = {}) {
 }
 
 const post = (body, extraHeaders = {}) => ({ method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...extraHeaders }, body: JSON.stringify(body) })
+
+test('unavailable academic source keeps the dashboard usable without stale or invented headcounts', async t => {
+  const api = await startApi({ SINQ_ACADEMICS_ENABLED: 'true', SINQ_ACADEMICS_DB_HOST: '127.0.0.1', SINQ_ACADEMICS_DB_PORT: '1',
+    SINQ_ACADEMICS_DB_NAME: 'test-only-unavailable', SINQ_ACADEMICS_DB_USER: 'test-only-user', SINQ_ACADEMICS_DB_PASSWORD: 'test-only-private-password' })
+  t.after(() => api.close())
+  const login = await api.request('/auth/login', post(credentials))
+  assert.equal(login.status, 200)
+  const cookie = login.headers.get('set-cookie').split(';')[0]
+  const response = await api.request('/v1/president/dashboard', { headers: { Cookie: cookie } })
+  assert.equal(response.status, 200)
+  const data = await response.json()
+  assert.equal(data.academicCounts.status, 'unavailable')
+  assert.equal(data.academicCounts.term, null)
+  assert.equal(data.academicCounts.faculty.total, null)
+  assert.equal(data.academicCounts.students.total, null)
+  assert.ok(data.campuses.every(campus => campus.faculty === null && campus.students === null))
+  assert.equal(data.campuses.length, 7)
+  assert.doesNotMatch(JSON.stringify(data), /test-only-private-password|test-only-user|test-only-unavailable/)
+})
 
 test('presidential authentication lifecycle and request protections', async t => {
   const api = await startApi()

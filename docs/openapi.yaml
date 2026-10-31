@@ -81,6 +81,18 @@ paths:
                   categorySources:
                     type: object
                     additionalProperties: {enum: [sinq, oracle, pad, null]}
+                  facultyDirectory:
+                    type: object
+                    description: Compatibility alias for the current-term academic faculty counts; never taken from the all-time profile directory. Unit totals can overlap, so their sum may exceed the distinct university total.
+                    required: [total, byCampus, retrievedAt]
+                    properties:
+                      total: {$ref: '#/components/schemas/Count'}
+                      byCampus:
+                        type: object
+                        required: [access, isulan, tacurong, kalamansig, lutayan, palimbang, bagumbayan]
+                        additionalProperties: {$ref: '#/components/schemas/Count'}
+                      retrievedAt: {type: [string, 'null'], format: date-time}
+                  academicCounts: {$ref: '#/components/schemas/AcademicCounts'}
                   campuses:
                     type: array
                     minItems: 7
@@ -170,6 +182,66 @@ components:
       type: http
       scheme: bearer
   schemas:
+    AcademicCounts:
+      type: object
+      description: Distinct current administrator-term academic headcounts. Student counts use unique normalized complete names in active imported class lists only. No individual names or identity hashes are returned.
+      required: [status, term, retrievedAt, studentBasis, faculty, students, colleges, programs, quality]
+      properties:
+        status: {enum: [connected, disabled, unavailable]}
+        term:
+          type: [object, 'null']
+          required: [academicYearId, academicYear, semester, semesterLabel, key]
+          properties:
+            academicYearId: {type: integer, minimum: 1}
+            academicYear: {type: string, pattern: '^\d{4}-\d{4}$'}
+            semester: {type: integer, enum: [1, 2, 3]}
+            semesterLabel: {enum: [1st Semester, 2nd Semester, Midyear]}
+            key: {type: string, description: 'Academic year followed by numeric semester, e.g. 2026-2027:1'}
+        retrievedAt: {type: [string, 'null'], format: date-time}
+        studentBasis: {const: active_class_lists}
+        faculty: {$ref: '#/components/schemas/AcademicHeadcount'}
+        students: {$ref: '#/components/schemas/AcademicHeadcount'}
+        colleges:
+          type: array
+          items:
+            type: object
+            required: [id, name, code, campusId, faculty, students]
+            properties:
+              id: {type: integer, minimum: 1}
+              name: {type: string}
+              code: {type: string}
+              campusId: {enum: [access, isulan, tacurong, kalamansig, lutayan, palimbang, bagumbayan]}
+              faculty: {$ref: '#/components/schemas/Count'}
+              students: {$ref: '#/components/schemas/Count'}
+        programs:
+          type: array
+          items:
+            type: object
+            required: [id, name, code, major, collegeId, campusId, students]
+            properties:
+              id: {type: integer, minimum: 1}
+              name: {type: string}
+              code: {type: string}
+              major: {type: string}
+              collegeId: {type: integer, minimum: 1}
+              campusId: {enum: [access, isulan, tacurong, kalamansig, lutayan, palimbang, bagumbayan]}
+              students: {$ref: '#/components/schemas/Count'}
+        quality:
+          type: object
+          required: [facultyWithMultipleColleges, studentNamesWithMultipleIds]
+          properties:
+            facultyWithMultipleColleges: {type: integer, minimum: 0}
+            studentNamesWithMultipleIds: {type: integer, minimum: 0}
+    AcademicHeadcount:
+      type: object
+      description: Independent distinct totals per view. Cross-unit memberships mean row counts are not additive.
+      required: [total, byCampus]
+      properties:
+        total: {$ref: '#/components/schemas/Count'}
+        byCampus:
+          type: object
+          required: [access, isulan, tacurong, kalamansig, lutayan, palimbang, bagumbayan]
+          additionalProperties: {$ref: '#/components/schemas/Count'}
     Campus:
       type: object
       required: [id, name, mark, color, tint, students, previousStudents, faculty, programs, retention, budget, utilization, research, extension, production, inventory]
