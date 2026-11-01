@@ -49,9 +49,9 @@ async function startApi(overrides = {}) {
 
 const post = (body, extraHeaders = {}) => ({ method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...extraHeaders }, body: JSON.stringify(body) })
 
-test('unavailable academic source keeps the dashboard usable without stale or invented headcounts', async t => {
-  const api = await startApi({ SINQ_ACADEMICS_ENABLED: 'true', SINQ_ACADEMICS_DB_HOST: '127.0.0.1', SINQ_ACADEMICS_DB_PORT: '1',
-    SINQ_ACADEMICS_DB_NAME: 'test-only-unavailable', SINQ_ACADEMICS_DB_USER: 'test-only-user', SINQ_ACADEMICS_DB_PASSWORD: 'test-only-private-password' })
+test('unavailable academic API keeps the dashboard usable without stale or invented headcounts', async t => {
+  const api = await startApi({ SINQ_ACADEMICS_ENABLED: 'true', SINQ_ACADEMICS_LOCAL_TEST_ENABLED: 'false',
+    SINQ_API_BASE_URL: 'http://unapproved.example', SINQ_API_TOKEN: 'test-only-private-token-for-academic-counts' })
   t.after(() => api.close())
   const login = await api.request('/auth/login', post(credentials))
   assert.equal(login.status, 200)
@@ -65,7 +65,7 @@ test('unavailable academic source keeps the dashboard usable without stale or in
   assert.equal(data.academicCounts.students.total, null)
   assert.ok(data.campuses.every(campus => campus.faculty === null && campus.students === null))
   assert.equal(data.campuses.length, 7)
-  assert.doesNotMatch(JSON.stringify(data), /test-only-private-password|test-only-user|test-only-unavailable/)
+  assert.doesNotMatch(JSON.stringify(data), /test-only-private-token|unapproved\.example/)
 })
 
 test('presidential authentication lifecycle and request protections', async t => {

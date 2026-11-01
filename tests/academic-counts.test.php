@@ -4,6 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/bootstrap.php';
 require dirname(__DIR__) . '/src/Records.php';
 require dirname(__DIR__) . '/src/SynkAcademics.php';
+require dirname(__DIR__) . '/integrations/synk/backend/pulse_academic_counts.php';
 
 $checks = 0;
 function checkAcademic(bool $condition, string $message): void {
@@ -23,7 +24,7 @@ function studentRow(int $id, int $program, array $overrides = []): array {
         'program_id' => $program, 'college_id' => $program === 11 ? 1 : 2, 'campus_id' => $program === 11 ? 1 : 2,
         'ay_id' => 2, 'semester' => 1, 'is_active' => 1, 'source_kind' => 'class_list'], $overrides);
 }
-$term = PulseSynkAcademics::term(['ay_id' => 2, 'semester' => 1, 'academic_year' => '2026-2027']);
+$term = SynkAcademicCounts::term(['ay_id' => 2, 'semester' => 1, 'academic_year' => '2026-2027']);
 $campuses = [];
 foreach (pulseCampusCatalogue() as $index => $campus) $campuses[] = ['campus_id' => $index + 1, 'campus_name' => $campus['name'] . ' Campus'];
 $colleges = [
@@ -41,7 +42,7 @@ $students = [studentRow(1, 11), studentRow(1, 11), studentRow(2, 11, ['first_nam
     studentRow(1, 22), studentRow(3, 22, ['first_name' => 'Jose']),
     studentRow(4, 11, ['is_active' => 0]), studentRow(5, 11, ['semester' => 2]),
     studentRow(6, 11, ['ay_id' => 1]), studentRow(7, 11, ['source_kind' => 'approved_enrollment'])];
-$data = PulseSynkAcademics::aggregate($term, $campuses, $colleges, $programs, $faculty, $students, 'active_class_lists');
+$data = SynkAcademicCounts::aggregate($term, $campuses, $colleges, $programs, $faculty, $students, 'active_class_lists');
 checkAcademic($data['term']['key'] === '2026-2027:1', 'Use the administrator term, not the calendar or scheduler session.');
 checkAcademic($data['faculty']['total'] === 2, 'Count distinct roster faculty only in the current academic term.');
 checkAcademic($data['faculty']['byCampus']['access'] === 1 && $data['faculty']['byCampus']['isulan'] === 2, 'Deduplicate faculty independently within each campus.');
@@ -53,19 +54,19 @@ checkAcademic(array_column($data['programs'], 'students') === [1, 2], 'Student p
 checkAcademic(array_column($data['colleges'], 'students') === [1, 2], 'Student college totals are distinct, not sums of courses.');
 checkAcademic($data['quality']['facultyWithMultipleColleges'] === 1 && $data['quality']['studentNamesWithMultipleIds'] === 1, 'Report overlapping assignments and same-name identities without exposing names.');
 checkAcademic(!str_contains(json_encode($data), 'Dela Cruz') && !str_contains(json_encode($data), 'student_id'), 'Return only aggregate counts and unit labels.');
-checkAcademic(PulseSynkAcademics::studentKey(studentRow(1, 11, ['last_name' => 'Peña'])) === PulseSynkAcademics::studentKey(studentRow(1, 11, ['last_name' => "PEN\u{0303}A"])), 'Preserve and compose accents before case normalization.');
-checkAcademic(PulseSynkAcademics::studentKey(studentRow(1, 11, ['first_name' => 'Ana', 'middle_name' => 'Maria'])) !== PulseSynkAcademics::studentKey(studentRow(1, 11, ['first_name' => 'Ana Maria', 'middle_name' => ''])), 'Do not merge different structured names.');
-checkAcademic(PulseSynkAcademics::studentKey(studentRow(1, 11, ['suffix_name' => 'Jr.'])) !== PulseSynkAcademics::studentKey(studentRow(1, 11)), 'Keep different suffixes distinct.');
-$empty = PulseSynkAcademics::aggregate($term, $campuses, $colleges, $programs, [], [], 'active_class_lists');
+checkAcademic(SynkAcademicCounts::studentKey(studentRow(1, 11, ['last_name' => 'Peña'])) === SynkAcademicCounts::studentKey(studentRow(1, 11, ['last_name' => "PEN\u{0303}A"])), 'Preserve and compose accents before case normalization.');
+checkAcademic(SynkAcademicCounts::studentKey(studentRow(1, 11, ['first_name' => 'Ana', 'middle_name' => 'Maria'])) !== SynkAcademicCounts::studentKey(studentRow(1, 11, ['first_name' => 'Ana Maria', 'middle_name' => ''])), 'Do not merge different structured names.');
+checkAcademic(SynkAcademicCounts::studentKey(studentRow(1, 11, ['suffix_name' => 'Jr.'])) !== SynkAcademicCounts::studentKey(studentRow(1, 11)), 'Keep different suffixes distinct.');
+$empty = SynkAcademicCounts::aggregate($term, $campuses, $colleges, $programs, [], [], 'active_class_lists');
 checkAcademic($empty['faculty']['total'] === 0 && $empty['students']['total'] === 0, 'A valid current term with no roster records is a confirmed zero.');
-$next = PulseSynkAcademics::aggregate(PulseSynkAcademics::term(['ay_id' => 2, 'semester' => 2, 'academic_year' => '2026-2027']), $campuses, $colleges, $programs, $faculty, $students, 'active_class_lists');
+$next = SynkAcademicCounts::aggregate(SynkAcademicCounts::term(['ay_id' => 2, 'semester' => 2, 'academic_year' => '2026-2027']), $campuses, $colleges, $programs, $faculty, $students, 'active_class_lists');
 checkAcademic($next['faculty']['total'] === 1 && $next['students']['total'] === 1, 'Changing the selected term excludes previous-term identities.');
-rejectAcademic(fn () => PulseSynkAcademics::term(['ay_id' => 0, 'semester' => 1, 'academic_year' => '2026-2027']), 'Reject an unset administrator academic year.');
-rejectAcademic(fn () => PulseSynkAcademics::term(['ay_id' => 2, 'semester' => 0, 'academic_year' => '2026-2027']), 'Reject an unset administrator semester.');
-rejectAcademic(fn () => PulseSynkAcademics::term(['ay_id' => 2, 'semester' => 1, 'academic_year' => '2026-2028']), 'Reject malformed academic year labels.');
-rejectAcademic(fn () => PulseSynkAcademics::aggregate($term, $campuses, $colleges, $programs, [], [studentRow(1, 11, ['college_id' => 2])], 'active_class_lists'), 'Fail closed when a membership conflicts with its program scope.');
-rejectAcademic(fn () => PulseSynkAcademics::aggregate($term, array_slice($campuses, 1), $colleges, $programs, [], [], 'active_class_lists'), 'Do not return partial university totals when a campus mapping is missing.');
-rejectAcademic(fn () => PulseSynkAcademics::aggregate($term, $campuses, $colleges, $programs, [], [studentRow(1, 11, ['first_name' => ''])], 'active_class_lists'), 'Do not silently skip students with invalid identities.');
+rejectAcademic(fn () => SynkAcademicCounts::term(['ay_id' => 0, 'semester' => 1, 'academic_year' => '2026-2027']), 'Reject an unset administrator academic year.');
+rejectAcademic(fn () => SynkAcademicCounts::term(['ay_id' => 2, 'semester' => 0, 'academic_year' => '2026-2027']), 'Reject an unset administrator semester.');
+rejectAcademic(fn () => SynkAcademicCounts::term(['ay_id' => 2, 'semester' => 1, 'academic_year' => '2026-2028']), 'Reject malformed academic year labels.');
+rejectAcademic(fn () => SynkAcademicCounts::aggregate($term, $campuses, $colleges, $programs, [], [studentRow(1, 11, ['college_id' => 2])], 'active_class_lists'), 'Fail closed when a membership conflicts with its program scope.');
+rejectAcademic(fn () => SynkAcademicCounts::aggregate($term, array_slice($campuses, 1), $colleges, $programs, [], [], 'active_class_lists'), 'Do not return partial university totals when a campus mapping is missing.');
+rejectAcademic(fn () => SynkAcademicCounts::aggregate($term, $campuses, $colleges, $programs, [], [studentRow(1, 11, ['first_name' => ''])], 'active_class_lists'), 'Do not silently skip students with invalid identities.');
 putenv('SINQ_ACADEMICS_ENABLED=false');
 checkAcademic(PulseSynkAcademics::read()['faculty']['total'] === null, 'Disabled source is unavailable, not zero or the all-time faculty directory.');
 echo "Academic counts: {$checks} checks passed. No source connection or writes were made.\n";

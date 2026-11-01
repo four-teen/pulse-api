@@ -56,6 +56,8 @@ try {
         ['id' => 'access', 'instruction' => ['students' => 120, 'previousStudents' => 100, 'faculty' => 10, 'programs' => 3, 'retention' => 90], 'research' => ['active' => 2]],
     ]];
     $store = new PulseSnapshotStore();
+    $academicPeriod = $payload; $academicPeriod['periodKey'] = '2026-2027:1';
+    check(pulseValidateSnapshot($academicPeriod, 'sinq')['periodKey'] === '2026-2027:1', 'Summary snapshots must support the administrator academic term key.');
     $store->save('sinq', $payload);
     check($store->load('sinq')['campuses'][0]['instruction']['students'] === 120, 'Validated snapshots must round-trip.');
     check(pulsePresidentDashboard()['campuses'][0]['students'] === null, 'No category ownership may be guessed from a source name.');

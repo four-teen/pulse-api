@@ -1,4 +1,5 @@
 .env
+**/pulse_api_config.local.php
 .env.*
 !.env.example
 !.env.local.example

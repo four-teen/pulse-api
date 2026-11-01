@@ -42,7 +42,7 @@ function pulseValidateSnapshot(array $input, string $sourceId): array
         throw new InvalidArgumentException('Unsupported snapshot version or source identifier.');
     }
     $periodKey = $input['periodKey'] ?? null;
-    if (!is_string($periodKey) || !preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/D', $periodKey)) throw new InvalidArgumentException('A reporting period identifier is required.');
+    if (!is_string($periodKey) || !preg_match('/^[A-Za-z0-9][A-Za-z0-9:._-]{0,79}$/D', $periodKey)) throw new InvalidArgumentException('A reporting period identifier is required.');
     $observedAt = $input['observedAt'] ?? null;
     if (!is_string($observedAt) || !preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/D', $observedAt)) {
         throw new InvalidArgumentException('A valid observedAt timestamp is required.');

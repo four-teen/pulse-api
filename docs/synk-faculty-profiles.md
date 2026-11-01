@@ -1,6 +1,6 @@
 # Read-only Synk faculty profiles: local and production
 
-> This optional profile feed is separate from academic headcounts. The current dashboard counts distinct current-term scheduler faculty and active imported student names using [Synk academic counts](synk-academic-counts.md). Do not use this all-time profile snapshot as a faculty count. No port 8081 server or profile sync is needed for the academic reader.
+> This optional profile feed is separate from academic headcounts. The dashboard retrieves [Synk academic counts](synk-academic-counts.md) through the new `academic-counts` API resource. Do not use this all-time profile snapshot as a faculty count. The local loopback server supports both resources; profile synchronization is not needed for academic counts.
 
 PULSE displays faculty records owned by Synk. PULSE never creates, updates, or deletes a Synk faculty record. The existing source endpoint accepts GET only; the connector also uses GET only. Changes to faculty records remain in Synk.
 

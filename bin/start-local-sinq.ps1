@@ -25,7 +25,7 @@ $env:SYNK_PULSE_API_TOKEN = $localToken
 Push-Location -LiteralPath $synkRoot
 try {
     Write-Output 'Serving local Synk on http://127.0.0.1:8081. Press Ctrl+C to stop it.'
-    php -S 127.0.0.1:8081 -t $synkRoot
+    php -S 127.0.0.1:8081 -t $synkRoot (Join-Path $PSScriptRoot 'synk-export-router.php')
 } finally {
     Pop-Location
     if ($null -eq $previousToken) { Remove-Item Env:SYNK_PULSE_API_TOKEN -ErrorAction SilentlyContinue }
