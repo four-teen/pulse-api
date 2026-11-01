@@ -13,8 +13,7 @@ if (PHP_VERSION_ID < 80100) $issues[] = 'PHP 8.1 or newer is required.';
 foreach (['json', 'session', 'curl'] as $extension) if (!extension_loaded($extension)) $issues[] = 'Required PHP extension missing: ' . $extension;
 if (config('PRESIDENT_PASSCODE') === '' && config('PRESIDENT_PASSCODE_HASH') === '') $issues[] = 'Configure the presidential passcode.';
 if (PulseSynkAcademics::enabled()) {
-    if (!extension_loaded('mysqli') || !function_exists('mb_strtoupper')) $issues[] = 'Synk academic counts require mysqli and mbstring.';
-    if (config('APP_ENV') === 'production' && (config('SINQ_ACADEMICS_DB_NAME') === '' || config('SINQ_ACADEMICS_DB_USER') === '')) $issues[] = 'Configure the private production Synk read-only database account.';
+    foreach (PulseSynkAcademics::configurationIssues() as $issue) $issues[] = $issue;
 }
 try { $directory = runtimeDirectory(); if (!is_writable($directory)) $issues[] = 'Private runtime storage must be writable.'; }
 catch (Throwable) { $issues[] = 'Private runtime storage is unavailable.'; }

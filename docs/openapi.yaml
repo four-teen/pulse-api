@@ -162,15 +162,18 @@ paths:
           description: Presidential authentication required
   /backend/pulse_api.php:
     get:
-      summary: Synk's read-only PULSE faculty export
-      description: Source API. Requires an Authorization Bearer token configured on the PHP host; GET only. Exports an approved faculty profile field allowlist and never accepts writes.
+      summary: Synk's read-only PULSE export
+      description: Source API hosted by Synk. Authenticated GET only. The academic-counts resource returns current administrator-term aggregate counts; faculty-profiles returns the approved profile field allowlist. Synk uses its existing database connection. PULSE needs no database credentials.
       security: [{sinqBearer: []}]
       parameters:
-        - {name: resource, in: query, required: true, schema: {const: faculty-profiles}}
+        - {name: resource, in: query, required: true, schema: {enum: [faculty-profiles, academic-counts]}}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 250, default: 100}}
         - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}}
       responses:
-        '200': {description: Synk faculty profile page}
+        '200':
+          description: Synk faculty profile page or aggregate academic-count response. Academic counts include schemaVersion 1, sourceId sinq, and the AcademicCounts fields.
+        '405': {description: GET only; source writes are not accepted}
+        '503': {description: Synk API token is not configured}
         '401': {description: Bearer token required}
 components:
   securitySchemes:

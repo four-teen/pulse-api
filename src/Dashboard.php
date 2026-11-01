@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/Integrations.php';
 require_once __DIR__ . '/SynkAcademics.php';
 
-/** Academic counts use a read-only local transaction; other metrics read private snapshots. */
+/** Academic counts use Synk's read-only HTTP API; other metrics read private snapshots. */
 function pulsePresidentDashboard(): array
 {
     $academics = PulseSynkAcademics::read();
