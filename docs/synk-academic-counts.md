@@ -47,6 +47,8 @@ Keep Synk's existing `db.php` and its database configuration unchanged. The new 
 
 Both source files belong in Synk's `backend/`, not PULSE API's `public/`. The old file alone supported faculty profiles, not current-term academic counts. The new endpoint preserves the existing `faculty-profiles` resource as well.
 
+The two Synk export files support the existing PHP 7.3 source host; PULSE API itself still requires PHP 8.1+. Do not change the PHP version for the entire Synk application to install this export. Use the updated copies of **both** files: older copies contain arrow functions and PHP 8-only calls that fail on the source host. The revised entry point returns `X-Pulse-Export-Version: academic-php73-v1`, including on authentication errors, so the deployed revision can be identified without a token.
+
 ### 3. Set the same private API token on both servers
 
 Choose a private random token of at least 32 characters; 64 random hexadecimal characters is a convenient choice. Do not use the placeholder text below as a token. If Synk already has `SYNK_PULSE_API_TOKEN` configured in its PHP environment, use that existing private value.
@@ -80,6 +82,8 @@ Refresh the PULSE dashboard. `academicCounts.status` should be `connected` with 
 - Source `401 Unauthorized`: PULSE's token and Synk's token do not match, or the host did not forward the Authorization header to PHP.
 - Source `404`: the old profile-only export is still deployed or the endpoint path is wrong.
 - Source `500`: inspect Synk's private PHP error log for source schema, connection, or academic-setting problems. The API deliberately does not expose internal details.
+- An empty HTML `500` with `unexpected 'fn'` in the source log means the old export is still installed on PHP 7.3. Replace **both** prepared source files; changing PULSE Web or its token does not resolve this parse error.
+- A token saved in `pulse_api_config.example.php` is ignored. Rename the configured file to **`pulse_api_config.local.php`**; preserve its private token when replacing the two export files. Never upload a placeholder over an existing private config.
 - PULSE `disabled`: `SINQ_ACADEMICS_ENABLED` is not true on the live PULSE API.
 - PULSE `unavailable`: the source request, configuration, response validation, or token check failed.
 
@@ -111,9 +115,12 @@ php bin/check-academics.php
 php tests/academic-counts.test.php
 php tests/academic-api-validation.test.php
 node --test tests/academic-api-http.test.mjs tests/auth.test.mjs
+node --test tests/synk-export-compat.test.mjs
 ```
 
 `check-academics.php` prints aggregate counts and period only. Pure counting/validation tests use synthetic data. HTTP tests use isolated loopback source fixtures. `php tests/academic-source-smoke.php --local` explicitly verifies the local HTTP result against independent aggregate SQL; that opt-in test is the only PULSE test utility with direct local source database access.
+
+Set `SYNK_EXPORT_TEST_PHP` to an older PHP executable to run the isolated source authentication and syntax regression test on that runtime. It starts a loopback-only fixture, never loads Synk's `db.php`, and covers missing/placeholder tokens, unauthorized requests, GET-only behavior, resource routing, and safe source failures.
 
 ## President view and contract
 

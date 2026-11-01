@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+// Keep this source export compatible with Synk's PHP 7.3 host.
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
@@ -10,6 +11,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
+header('X-Pulse-Export-Version: academic-php73-v1');
 
 function pulse_api_respond(int $status, array $payload): void
 {
@@ -29,7 +31,7 @@ if ($expectedToken === '' && is_file(__DIR__ . '/pulse_api_config.local.php')) {
     if (is_array($pulseConfig)) $expectedToken = (string)($pulseConfig['token'] ?? '');
 }
 $authorization = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
-if (strlen($expectedToken) < 32 || str_starts_with($expectedToken, 'REPLACE_')) $expectedToken = '';
+if (strlen($expectedToken) < 32 || strncmp($expectedToken, 'REPLACE_', 8) === 0) $expectedToken = '';
 if ($expectedToken === '' || !preg_match('/^Bearer\s+(.+)$/iD', trim($authorization), $matches)
     || !hash_equals($expectedToken, trim($matches[1]))) {
     pulse_api_respond($expectedToken === '' ? 503 : 401, ['message' => $expectedToken === '' ? 'Service is not configured.' : 'Unauthorized.']);
@@ -113,7 +115,9 @@ try {
     if ($tableExists($conn, 'tbl_faculty_profiles')) {
         $profileFields = ['full_name', 'campus_name', 'college_name', 'faculty_rank', 'bachelor_degree', 'bachelor_institution', 'bachelor_specialization', 'bachelor_status', 'master_degree', 'master_institution', 'master_specialization', 'master_status', 'doctoral_degree', 'doctoral_institution', 'doctoral_specialization', 'doctoral_status', 'updated_at'];
         $profileColumns = $columns($conn, 'tbl_faculty_profiles');
-        $selectedFields = array_values(array_filter($profileFields, static fn(string $field): bool => isset($profileColumns[$field])));
+        $selectedFields = array_values(array_filter($profileFields, static function (string $field) use ($profileColumns): bool {
+            return isset($profileColumns[$field]);
+        }));
         if (isset($profileColumns['user_id']) && $selectedFields) {
             $result = $conn->query('SELECT user_id, `' . implode('`, `', $selectedFields) . '` FROM tbl_faculty_profiles');
             while ($row = $result->fetch_assoc()) $accountProfiles[(int)$row['user_id']] = $row;
@@ -145,7 +149,7 @@ try {
         try {
             $date = new DateTimeImmutable($value, new DateTimeZone('Asia/Manila'));
             return $date->format(DATE_ATOM);
-        } catch (Throwable) { return null; }
+        } catch (Throwable $error) { return null; }
     };
     $records = [];
     foreach ($facultyRows as $faculty) {
@@ -172,7 +176,9 @@ try {
             'updatedAt' => $profileTimestamp($profile['updated_at'] ?? ($faculty['record_updated_at'] ?? null)),
         ];
     }
-    usort($records, static fn(array $left, array $right): int => strcasecmp($left['fullName'], $right['fullName']));
+    usort($records, static function (array $left, array $right): int {
+        return strcasecmp($left['fullName'], $right['fullName']);
+    });
     $total = count($records);
     pulse_api_respond(200, [
         'schemaVersion' => 1,

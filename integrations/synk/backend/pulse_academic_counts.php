@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/** Runs inside Synk only, using Synk's existing connection. Fixed SELECTs; no source writes. */
+/** PHP 7.3-compatible source helper; Synk's existing connection, fixed SELECTs, no source writes. */
 final class SynkAcademicCounts
 {
     private const MAX_ROWS = 200000;
@@ -28,7 +28,9 @@ final class SynkAcademicCounts
             $engines = self::rows($db, "SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()
                 AND TABLE_NAME IN ('tbl_academic_settings','tbl_academic_years','tbl_campus','tbl_college','tbl_program',
                 'tbl_college_faculty','tbl_faculty','tbl_student_management','tbl_student_management_enrolled_subjects')");
-            if (count($engines) !== 9 || array_filter($engines, static fn ($row) => strcasecmp((string)$row['ENGINE'], 'InnoDB') !== 0)) {
+            if (count($engines) !== 9 || array_filter($engines, static function ($row): bool {
+                return strcasecmp((string)$row['ENGINE'], 'InnoDB') !== 0;
+            })) {
                 throw new RuntimeException('Consistent transactional source tables are required.');
             }
             $terms = self::rows($db, 'SELECT s.current_ay_id AS ay_id,s.current_semester AS semester,ay.ay AS academic_year
@@ -155,8 +157,8 @@ final class SynkAcademicCounts
             'faculty' => ['total' => count($faculty), 'byCampus' => array_map('count', $facultyCampuses)],
             'students' => ['total' => count($studentNames), 'byCampus' => array_map('count', $studentCampuses)],
             'colleges' => array_values($colleges), 'programs' => array_values($programs),
-            'quality' => ['facultyWithMultipleColleges' => count(array_filter($faculty, fn ($scopes) => count($scopes) > 1)),
-                'studentNamesWithMultipleIds' => count(array_filter($studentIds, fn ($ids) => count($ids) > 1))]];
+            'quality' => ['facultyWithMultipleColleges' => count(array_filter($faculty, static function ($scopes): bool { return count($scopes) > 1; })),
+                'studentNamesWithMultipleIds' => count(array_filter($studentIds, static function ($ids): bool { return count($ids) > 1; }))]];
     }
 
     private static function composeLatin(string $text): string
